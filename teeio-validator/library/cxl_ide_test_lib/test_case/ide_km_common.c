@@ -175,7 +175,7 @@ bool cxl_stop_ide_stream(void *doe_context, void *spdm_context,
     TEEIO_DEBUG((TEEIO_DEBUG_ERROR, "cxl_ide_km_key_set_stop TX failed with status=%08x\n", status));
     return false;
   }
-  LIBSPDM_DEBUG((LIBSPDM_DEBUG_INFO, "key_set_stop TX\n"));
+  TEEIO_DEBUG((TEEIO_DEBUG_INFO, "key_set_stop TX\n"));
 
   return true;
 }
@@ -451,6 +451,29 @@ bool cxl_teardown_ide_stream(void *test_context)
   // set RXTRANSTOINSECURESTATE and TXTRANSTOINSECURESTATE on the RootPort side
   cxl_cfg_rp_txrx_transto_insecure_state(kcbar_ptr, CXL_IDE_STREAM_DIRECTION_RX, true);
   cxl_cfg_rp_txrx_transto_insecure_state(kcbar_ptr, CXL_IDE_STREAM_DIRECTION_TX, true);
+
+  // wait for 10 ms for rx to get ide ready
+  // libspdm_sleep(10 * 1000);
+
+  INTEL_KEYP_CXL_LINK_ENC_CONTROL enc_control = {.raw = mmio_read_reg32(&kcbar_ptr->link_enc_control)};
+  TEEIO_PRINT((" Tear-down in progress: enc_control   : %08x\n", enc_control.raw));
+  TEEIO_PRINT(("    start_trigger=%d, rxkey_valid=%d, txkey_valid=%d, txtransto_insecure_state: %d, rxtransto_insecure_state: %d\n",
+                      enc_control.start_trigger, enc_control.rxkey_valid, enc_control.txkey_valid, enc_control.txtransto_insecure_state, enc_control.rxtransto_insecure_state));
+
+  int i = 0;
+  while (enc_control.rxtransto_insecure_state != 0)
+  {
+      // wait for 1s for device to get ide ready
+      libspdm_sleep(1 * 1000 * 1000);
+      if (++i >= 10)
+      {
+          TEEIO_DEBUG((TEEIO_DEBUG_ERROR, "rxtransto_insecure_state time out on (%d) seconds\n", i));
+          break;
+      }
+      enc_control.raw = mmio_read_reg32(&kcbar_ptr->link_enc_control);
+  }
+  TEEIO_PRINT((" Waiting on RP rxtransto_insecure_state for %08x seconds\n", i));
+
 
   // clear LinkEncEnable on the RootPort side
   cxl_cfg_rp_linkenc_enable(kcbar_ptr, false);

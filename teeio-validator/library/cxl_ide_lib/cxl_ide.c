@@ -913,7 +913,7 @@ void cxl_dump_kcbar(INTEL_KEYP_CXL_ROOT_COMPLEX_KCBAR *kcbar_ptr)
 
     INTEL_KEYP_CXL_LINK_ENC_CONTROL enc_control = {.raw = mmio_read_reg32(&kcbar_ptr->link_enc_control)};
     TEEIO_PRINT(("enc_control   : %08x\n", enc_control.raw));
-    TEEIO_PRINT(("    start_trigger=%d, rxkey_valid=%d, txkey_valid=%d\n, txtransto_insecure_state: %d, rxtransto_insecure_state: %d",
+    TEEIO_PRINT(("    start_trigger=%d, rxkey_valid=%d, txkey_valid=%d, txtransto_insecure_state: %d, rxtransto_insecure_state: %d\n",
                       enc_control.start_trigger, enc_control.rxkey_valid, enc_control.txkey_valid, enc_control.txtransto_insecure_state, enc_control.rxtransto_insecure_state));
 
 }
