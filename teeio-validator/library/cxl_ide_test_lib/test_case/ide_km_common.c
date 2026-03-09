@@ -212,7 +212,8 @@ static bool do_query_port_index(cxl_ide_test_group_context_t *context,
                  port_index, dev_func, bus, segment, *max_port_index));
 
     // Check if this port matches the target device
-    return (dev_func == target_dev_func && bus == target_bus && segment == target_segment);
+    // return (dev_func == target_dev_func && bus == target_bus && segment == target_segment);
+    return (dev_func == target_dev_func && bus == target_bus);
 }
 
 // Query the port index with device function and bus number
