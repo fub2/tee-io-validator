@@ -217,7 +217,7 @@ bool close_root_port(pcie_ide_test_group_context_t *group_context)
 
   reset_ide_registers(port_context, group_context->common.top->type, 0, group_context->rp_stream_index, true);
 
-  if(group_context->common.upper_port.kcbar_fd > 0) {
+  if(group_context->common.upper_port.kcbar_fd >= 0) {
     unmap_kcbar_addr(group_context->common.upper_port.kcbar_fd, group_context->common.upper_port.mapped_kcbar_addr);
   }
   group_context->common.upper_port.kcbar_fd = 0;

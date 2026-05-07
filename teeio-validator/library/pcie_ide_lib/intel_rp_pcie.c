@@ -11,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/mman.h>
@@ -201,12 +202,34 @@ uint8_t* map_kcbar_addr(uint64_t addr, int* mapped_fd)
         TEEIO_DEBUG ((TEEIO_DEBUG_ERROR, "Failed to open /dev/mem\n"));
         return NULL;
     }
-    uint8_t * mem_ptr = (uint8_t *)mmap(NULL, KCBAR_MEMORY_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, addr);
-    if (mem_ptr == MAP_FAILED) {
-        TEEIO_DEBUG ((TEEIO_DEBUG_ERROR, "Failed to mmap kcbar\n"));
+
+    long page_size = sysconf(_SC_PAGESIZE);
+    if (page_size <= 0) {
+        TEEIO_DEBUG((TEEIO_DEBUG_ERROR, "Failed to get page size\n"));
         close(mem_fd);
         return NULL;
     }
+
+    uint64_t page_mask = ~((uint64_t)page_size - 1);
+    uint64_t page_base_addr = addr & page_mask;
+    size_t page_offset = (size_t)(addr - page_base_addr);
+    size_t map_size = KCBAR_MEMORY_SIZE + page_offset;
+
+    off_t page_base_offset = (off_t)page_base_addr;
+    if ((uint64_t)page_base_offset != page_base_addr) {
+        TEEIO_DEBUG((TEEIO_DEBUG_ERROR, "KCBAR address is out of mmap offset range\n"));
+        close(mem_fd);
+        return NULL;
+    }
+
+    uint8_t * map_base = (uint8_t *)mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, mem_fd, page_base_offset);
+    if (map_base == MAP_FAILED) {
+        TEEIO_DEBUG((TEEIO_DEBUG_ERROR, "Failed to mmap kcbar\n"));
+        close(mem_fd);
+        return NULL;
+    }
+
+    uint8_t * mem_ptr = map_base + page_offset;
 
     *mapped_fd = mem_fd;
 
@@ -215,8 +238,20 @@ uint8_t* map_kcbar_addr(uint64_t addr, int* mapped_fd)
 
 bool unmap_kcbar_addr(int kcbar_mem_fd, uint8_t* mapped_kcbar_addr)
 {
-    if(kcbar_mem_fd > 0 && mapped_kcbar_addr != NULL){
-        munmap(mapped_kcbar_addr, KCBAR_MEMORY_SIZE);
+    if(kcbar_mem_fd >= 0 && mapped_kcbar_addr != NULL){
+        long page_size = sysconf(_SC_PAGESIZE);
+        if (page_size <= 0) {
+            close(kcbar_mem_fd);
+            return false;
+        }
+
+        uintptr_t addr = (uintptr_t)mapped_kcbar_addr;
+        uintptr_t map_base_addr = addr & ~((uintptr_t)page_size - 1);
+        uint8_t* map_base = (uint8_t*)map_base_addr;
+        size_t page_offset = (size_t)(addr - map_base_addr);
+        size_t map_size = KCBAR_MEMORY_SIZE + page_offset;
+
+        munmap(map_base, map_size);
         close(kcbar_mem_fd);
         return true;
     }
