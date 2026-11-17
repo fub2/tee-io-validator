@@ -390,13 +390,18 @@ bool cxl_populate_memcache_reg_block(CXL_PRIV_DATA_MEMCACHE_REG_DATA* memcache_r
   }
   
   ptr += 4;
-  for(int i = 0; i < cap_header.array_size; i++) {
-    memcache_reg->cap_headers[i].raw = mmio_read_reg32(ptr + i * 4);
+  // Some devices (e.g. Montage MXC) leave empty slots that array_size does not count.
+  int cnt = 0;
+  for(int slot = 0; cnt < cap_header.array_size && slot < CXL_CAPABILITY_ID_NUM; slot++) {
+    uint32_t raw = mmio_read_reg32(ptr + slot * 4);
+    if(raw != 0) {
+      memcache_reg->cap_headers[cnt++].raw = raw;
+    }
   }
 
-  memcache_reg->cap_headers_cnt = cap_header.array_size;
-  cap_headers_cnt = cap_header.array_size;
-  cxl_dump_cap_headers(cap_header, memcache_reg->cap_headers, cap_header.array_size);
+  memcache_reg->cap_headers_cnt = cnt;
+  cap_headers_cnt = cnt;
+  cxl_dump_cap_headers(cap_header, memcache_reg->cap_headers, cnt);
 
   //
   // walk thru to find CXL IDE Capability
